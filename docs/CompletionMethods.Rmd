@@ -2,7 +2,7 @@
 title: "Completion Methods in Higher Dimensions"
 author: "B. Fone and I. Rendo Barreiro"
 date: "2023-04-24"
-output: github_document
+output: html_document
 ---
 
 # 0. Setup
