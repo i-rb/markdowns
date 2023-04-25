@@ -1,0 +1,1398 @@
+---
+title: "Completion Methods in Higher Dimensions"
+author: "B. Fone and I. Rendo Barreiro"
+date: "2023-04-24"
+output: github_document
+---
+
+# 0. Setup
+
+First, as usual, we need a bunch of libraries:
+
+```{r, results="hide", message=FALSE, warning=FALSE}
+#install.packages("softImpute")
+#install.packages("https://github.com/i-rb/coda/blob/main/codareg_1.0.tar.gz?raw=true", repos=NULL, type="source")
+#install.packages("zCompositions")
+#install.packages("rTensor")
+#install.packages("sna")
+#install.packages("igraph")
+
+
+library("igraph")
+library("sna")
+library("softImpute")
+library("codareg")
+library("zCompositions")
+library("rTensor")
+``` 
+
+
+Now, the data, which is already cleaned data and available in my GitHub.
+
+```{r}
+# Compositional Data on Gas Emissions 
+edata = read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/data_emis.csv", sep=";")
+
+colnames(edata) = c("id","firm","period","co2","ch4","n2o")
+edata = subset(edata, period != "1990JJ00" & period != "1995JJ00")
+edata = subset(edata, firm != "305800   ")
+edata = subset(edata, firm != "350000   ")
+edata = subset(edata, firm != "A025423  ")
+edata = subset(edata, firm != "A025428  ")
+
+edata <- edata[, !(colnames(edata) == 'id')]
+edata <- edata[, !(colnames(edata) == 'firm')]
+edata <- edata[, !(colnames(edata) == 'period')]
+edata_copy = edata
+```
+
+
+# 1. Compositional Data Case
+
+First, we choose the missing data to impute, which are the same for each replication. We try with N (number of missing entries) equal to 20 (5%), 40 (10%) and 200 (50%).
+
+```{r}
+N_missing = 200
+```
+
+
+## 1.1. Direct Mechanism from compositional Vectors
+
+First, we prepare the data to be compositional and create the concatenated matrix $\tilde Y$ which here is called 'nandata':
+
+```{r}
+set.seed(31000) # Toulouse ! 
+nans_to_impute = floor(runif(N_missing,1,481)) 
+
+edata = edata_copy
+
+edata$co2 = edata$co2 
+edata$ch4 = edata$ch4 
+
+edata = closure(edata)
+
+nandata = edata
+for (i in nans_to_impute){
+  nandata[i,c("co2","ch4","n2o")] = c(NA,NA,NA)
+}
+
+n_edata = matrix(numeric(18),18,1)
+n_nandata = matrix(numeric(18),18,1)
+for (i in 1:22){
+  temp = edata[(18*(i-1)+1):(18*i),c("co2","ch4","n2o")]
+  temp2 = nandata[(18*(i-1)+1):(18*i),c("co2","ch4","n2o")]
+  n_edata = cbind(n_edata, temp)
+  n_nandata = cbind(n_nandata, temp2)
+}
+
+edata <- as.matrix(n_edata[, !(colnames(n_edata) == 'n_edata')])
+clos_edata = edata
+nandata <- as.matrix(n_nandata[, !(colnames(n_nandata) == 'n_nandata')])
+```
+
+We impute the missing data using different hyperparameters of the matrix completion algorithm and choose those that minimise the RMSE. For this purpose we use 'softImpute', which is the same algorithm used than in Athey et al. without fixed effects.
+
+```{r}
+best = -1
+res = 10000
+for (r in seq(1,17,1)){
+  for (l in seq(0,5,0.25)){
+    # convert to matrix
+    fit1 <-softImpute(nandata,rank=r,lambda=l)
+    impdata =complete(nandata,fit1)
+    
+    clos_nandata = nandata
+    for (j in 1:dim(clos_nandata)[2]){
+      for (i in 1:dim(clos_nandata)[1]){
+        if (is.na(clos_nandata[i, j])){
+          temclos = closure(t(matrix(c(impdata[i,j], impdata[i,j+1], impdata[i,j+2]))))
+          clos_nandata[i,j] <- temclos[1,1]
+          clos_nandata[i,j+1] <- temclos[1,2]
+          clos_nandata[i,j+2] <- temclos[1,3]
+        }
+      }
+    }
+   #  res1 = sqrt(mean((clos_nandata - edata)^2))
+    res1 = sqrt(sum((clos_nandata - edata)^2) / N_missing)
+
+    # res1 = norm(clos_nandata - edata) # this is the spectral norm, if needed.
+    if (res1 < res){res = res1; best = c(r,l)}
+  }
+}
+cat("RMSE:", 100*res)
+```
+
+
+## 1.2. Levels 
+
+Here we are imputing levels instead of shares and transforming them.
+
+First, we prepare the data, as before, until obtaining a suitable $\tilde Y$:
+
+```{r}
+set.seed(31000) 
+nans_to_impute = floor(runif(N_missing,1,481)) 
+
+edata = edata_copy
+
+edata$co2 = edata$co2 
+edata$ch4 = edata$ch4
+
+nandata = edata
+for (i in nans_to_impute){
+  nandata[i,c("co2","ch4","n2o")] = c(NA,NA,NA)
+}
+
+n_edata = matrix(numeric(18),18,1)
+n_nandata = matrix(numeric(18),18,1)
+for (i in 1:22){
+  temp = edata[(18*(i-1)+1):(18*i),c("co2","ch4","n2o")]
+  temp2 = nandata[(18*(i-1)+1):(18*i),c("co2","ch4","n2o")]
+  n_edata = cbind(n_edata, temp)
+  n_nandata = cbind(n_nandata, temp2)
+}
+
+edata <- as.matrix(n_edata[, !(colnames(n_edata) == 'n_edata')])
+nandata <- as.matrix(n_nandata[, !(colnames(n_nandata) == 'n_nandata')])
+```
+
+Here we impute the missing values in levels and compute the RMSE in its compositional version.
+
+```{r}
+best = -1
+res = 10000
+for (r in seq(1,17,1)){
+  for (l in seq(0,5,0.25)){
+      # matrix completion
+      fit1 <-softImpute(nandata,rank=4,lambda=3)
+      impdata =complete(nandata,fit1)
+      clos_impdata = impdata
+      for (j in seq(1,dim(impdata)[2],3)){
+        for (i in 1:dim(impdata)[1]){
+          temclos = closure(t(matrix(c(impdata[i,j], impdata[i,j+1], impdata[i,j+2]))))
+          clos_impdata[i,j] <- temclos[1,1]
+          clos_impdata[i,j+1] <- temclos[1,2]
+          clos_impdata[i,j+2] <- temclos[1,3]
+        }
+      }
+
+    res1 = sqrt(sum((clos_impdata - clos_edata)**2) / N_missing)
+    # res1 = norm(clos_impdata - clos_edata) # spectral norm
+    if (res1 < res){res = res1; best = c(r,l)}
+  }
+}
+cat("RMSE:", 100*res)
+```
+
+
+
+## 1.3. ARL transformation
+
+Here we use the ARL transformation into coordinates and apply matrix complation to $\tilde{Y}$, here 'nandata'.
+
+```{r}
+set.seed(31000) # Toulouse ! 
+nans_to_impute = floor(runif(N_missing,1,481)) 
+
+edata = edata_copy
+
+edata$co2 = edata$co2 
+edata$ch4 = edata$ch4 
+
+edata = closure(edata)
+
+nandata = edata
+for (i in nans_to_impute){
+  nandata[i,c("co2","ch4","n2o")] = c(NA,NA,NA)
+}
+
+# to ILR 
+nandata = alr(nandata)
+edata = alr(edata)
+edata2 = edata
+
+n_edata = matrix(numeric(18),18,1)
+n_nandata = matrix(numeric(18),18,1)
+for (i in 1:22){
+  temp = edata[(18*(i-1)+1):(18*i),]
+  temp2 = nandata[(18*(i-1)+1):(18*i),]
+  n_edata = cbind(n_edata, temp)
+  n_nandata = cbind(n_nandata, temp2)
+}
+
+edata <- n_edata[,-1]
+nandata <- n_nandata[,-1]
+```
+
+Here we impute the missing values in the coordinates and compute the RMSE for compositional shares.
+
+```{r}
+best = -1
+res = 10000
+for (r in seq(0,17,1)){
+  for (l in seq(0,5,0.25)){
+
+      # matrix completion
+      fit1 <-softImpute(nandata,rank=4,lambda=3)
+      impdata =complete(nandata,fit1)
+      
+      # back to coda
+      shaped_impdata = matrix(numeric(2),1,2)
+      for (i in 1:22){
+        temp = impdata[,((i*2)-1):(i*2)]
+        shaped_impdata = rbind(shaped_impdata, temp)
+      }
+      shaped_impdata = shaped_impdata[-1,]
+      impdata = inversealr(shaped_impdata)
+      
+      # back to original shape 
+      shaped_impdata = matrix(numeric(18),18,1)
+      for (i in 1:22){
+        temp = impdata[(18*(i-1)+1):(18*i),]
+        shaped_impdata = cbind(shaped_impdata, temp)
+      }
+      shaped_impdata <- shaped_impdata[,-1]
+      
+      # res1 = norm(round(shaped_impdata - clos_edata,5))
+      dif_mat = round(shaped_impdata - clos_edata,5)
+      res1 = sqrt(sum((dif_mat)^2) / N_missing)
+      if (res1 < res){res = res1; best = c(r,l)}
+  }
+}
+cat("RMSE:", 100*res)
+```
+
+
+
+The results are then:
+
+|     | Direct           | Levels         | ALR tr.|
+|-----|------------------|----------------|--------|
+| 5%  |            0.021 |          0.046 |  0.028 |
+| 10% |            0.177 |          0.154 |  0.200 |
+| 50% |            0.371 |          0.370 |  0.339 |
+
+
+
+# 2. Network Data
+
+First, we embed the original matrix to the euclidean space. We do this in Python with the following code https://github.com/i-rb/mres_assignments/blob/main/ML_code/data_to_GLEE.py. Sorry for the dirtiness.
+
+We can download the already embedded matrix with missing values (later), the not-embedded matrix with missing values and the original not-embedded without missing values one from my GitHub:
+
+```{r}
+py_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv", sep=";", head=F))
+real_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_real.csv", sep=";", head=F))
+
+py_mat[is.nan(py_mat)] <- NA
+```
+
+## 2.1. Direct Approach
+
+
+```{r}
+fit1 <-softImpute(py_mat,rank=7,lambda=0.2)
+imputed = abs(round(complete(py_mat,fit1)))
+N_missing = sum(is.na(py_mat))
+
+rmse = sqrt(sum((imputed-real_mat)^2) / N_missing)
+direct_imp = imputed
+rmse
+```
+
+
+## 2.2. Transformation via GLEE
+
+Download the data:
+
+```{r}
+py_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute_NET.csv", sep=";", head=F))
+py_mat2 = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv", sep=";", head=F))
+real_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_real.csv", sep=";", head=F))
+
+py_mat[is.nan(py_mat)] <- NA
+```
+
+This is how an embedding vector of a network looks like (here, i=1, t=1):
+
+```{r}
+py_mat[1:10,1]
+```
+
+Impute the missing values through matrix completion and recover the associated adjacency matrix:
+
+```{r}
+fit1 <-softImpute(py_mat,rank=1,lambda=0.2)
+imputed =complete(py_mat,fit1)
+
+# recover the L:
+
+reconstruction_L <- function(E, theta) {
+  E <- as.matrix(E) %*% t(as.matrix(E)) < theta
+  E <- ifelse(E, 1, 0)
+  return(E)
+}
+
+init = matrix(0,1,20)
+for (i in 1:9){
+  m1 = reconstruction_L(imputed[(((i-1)*10)+1):(i*10),1],-0.1)
+  m2 = reconstruction_L(imputed[(((i-1)*10)+1):(i*10),2],-0.1)
+  hor = cbind(m1,m2)
+  init = rbind(init,hor)
+}
+init <- init[-1, ]
+
+init[!is.na(py_mat2)] <- py_mat2[!is.na(py_mat2)]
+
+N_missing = sum(is.na(py_mat2))
+rmse = sqrt(sum((init-real_mat)^2) / N_missing)
+glee_imp = init
+rmse
+```
+
+
+## 2.3. SiLRTC ALGORITHM (AS TENSOR)
+
+Read Data:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+
+py_mat[is.nan(py_mat)] <- NA
+```
+
+Write it as a tensor:
+
+```{r}
+tensor = array(0, dim = c(10,10,9, 2))
+tensor_real = array(0, dim = c(10,10,9, 2))
+
+for (i in 1:9){
+  inner = list()
+  inner_r = list()
+  for (t in 1:2){
+    if(t==1){}
+    tensor[,,i,t] = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    tensor_real[,,i,t] = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+  }
+  tensor2 = as.tensor(tensor)
+  tensor_real2 = as.tensor(tensor_real)
+}
+```
+
+Impute data following the voting algorithm
+
+```{r}
+unfolded = k_unfold(tensor2, m = 2)@data
+fit1 <-softImpute(unfolded,rank=5,lambda=0.2)
+imputed = round(complete(unfolded,fit1))
+imputed = as.tensor(imputed)
+temp2 = k_fold(imputed,modes=c(10,10,9, 2),m=2)@data
+
+unfolded = k_unfold(tensor2, m = 3)@data
+fit1 <-softImpute(unfolded,rank=5,lambda=0.2)
+imputed = round(complete(unfolded,fit1))
+imputed = as.tensor(imputed)
+temp3 = k_fold(imputed,modes=c(10,10,9, 2),m=3)@data
+
+
+unfolded = k_unfold(tensor2, m = 4)@data
+fit1 <-softImpute(unfolded,rank=1,lambda=0.2)
+imputed = round(complete(unfolded,fit1))
+imputed = as.tensor(imputed)
+temp4 = k_fold(imputed,modes=c(10,10,9, 2),m=4)@data
+
+imputed_voting = array(as.numeric(temp4 + temp2 + temp3 > 0), dim = c(10,10,9,2))
+```
+
+
+```{r}
+real = tensor_real2@data
+N_missing = sum(is.na(py_mat2))
+tensor_imp = imputed_voting
+rmse = sqrt(sum((imputed_voting-real)^2) / N_missing)
+rmse
+```
+
+
+
+## 2.4. Imputting characteristics 
+
+... and comparing with the other imputations
+
+### 2.4.1 Mean degree
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = mean(rowMeans(network)/9)  
+    mean_degree_matrix_real[i,t] = mean(rowMeans(network_real)/9)  
+  }
+}
+```
+
+Carry out the imputation:
+
+```{r}
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+```
+
+Compare with the other imputations mean degree's:
+
+```{r}
+# tensor to matrix:
+tensor_imp_mat = matrix(0,90,20)
+for (i in 1:9){
+  for (t in 1:2){
+    tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)] = tensor_imp[,,i,t]
+  }
+}
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = mean(rowMeans(network_tensor)/9)  
+    mean_degree_matrix_direct[i,t] = mean(rowMeans(network_direct)/9)  
+    mean_degree_matrix_glee[i,t] = mean(rowMeans(network_glee)/9)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (mean degree) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (mean degree) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (mean degree) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (mean degree) char imp:", rmse)
+
+
+```
+
+
+
+### 2.4.2. Centralisation
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+We are recycling the code, the mean_degree is centralisation now!
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = sd(rowMeans(network)/9)  
+    mean_degree_matrix_real[i,t] = sd(rowMeans(network_real)/9)  
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = sd(rowMeans(network_tensor)/9)  
+    mean_degree_matrix_direct[i,t] = sd(rowMeans(network_direct)/9)  
+    mean_degree_matrix_glee[i,t] = sd(rowMeans(network_glee)/9)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (centralistation) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (centralistation) char imp  :", rmse)
+```
+
+### 2.4.3. Bicomponent size
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+We are recycling the code, the mean_degree is bicomponent average? size now!
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = sum(bicomponent.dist(network)$csize)
+    mean_degree_matrix_real[i,t] = sum(bicomponent.dist(network_real, symmetrize = "weak")$csize)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = sum(bicomponent.dist(network_tensor)$csize)
+    mean_degree_matrix_direct[i,t] = sum(bicomponent.dist(network_direct)$csize)  
+    mean_degree_matrix_glee[i,t] = sum(bicomponent.dist(network_glee)$csize)    
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (centralistation) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (centralistation) char imp  :", rmse)
+```
+
+
+
+### 2.4.4. Laplacian measures 
+
+Function to compute largest eigenvalue of the laplacian matrix:
+
+```{r}
+eigen_lap = function(adj_mat, n=1){
+  if (is.na(adj_mat[1,1])){return(NA)}
+  D = diag(rowSums(adj_mat))
+  L = D-adj_mat
+  return(eigen(L)$values[n])
+}
+```
+
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+We are recycling the code, the mean_degree is bicomponent average? size now!
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = eigen_lap(network)
+    mean_degree_matrix_real[i,t] = eigen_lap(network_real)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = eigen_lap(network_tensor)
+    mean_degree_matrix_direct[i,t] = eigen_lap(network_direct)
+    mean_degree_matrix_glee[i,t] = eigen_lap(network_glee)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (max_eigen) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (max_eigen) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (max_eigen) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (max_eigen) char imp  :", rmse)
+```
+
+
+if n=3,4, it is the same...
+
+```{r}
+eigen_lap = function(adj_mat, n=4){
+  if (is.na(adj_mat[1,1])){return(NA)}
+  D = diag(rowSums(adj_mat))
+  L = D-adj_mat
+  return(eigen(L)$values[n])
+}
+
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = eigen_lap(network)
+    mean_degree_matrix_real[i,t] = eigen_lap(network_real)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = eigen_lap(network_tensor)
+    mean_degree_matrix_direct[i,t] = eigen_lap(network_direct)
+    mean_degree_matrix_glee[i,t] = eigen_lap(network_glee)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (max_eigen_3) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (max_eigen_3) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (max_eigen_3) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (max_eigen_3) char imp  :", rmse)
+```
+
+
+
+### 2.4.5. Assortativity
+
+```{r}
+assortativity <- function(adjacency_matrix) {
+  if (is.na(adjacency_matrix[1,1])){return(NA)}
+  n <- dim(adjacency_matrix)[1]
+  degrees <- rowSums(adjacency_matrix)
+  m <- sum(degrees) / 2
+  numerator <- sum(adjacency_matrix * kronecker(t(degrees), degrees))
+  denominator <- sum(adjacency_matrix * kronecker(t(degrees), degrees)^2)
+  assortativity <- (numerator / m - (denominator / (2*m))^2) / (1 - (denominator / (2*m)))
+  return(assortativity)
+}
+```
+
+
+```{r}
+
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = assortativity(network)
+    mean_degree_matrix_real[i,t] = assortativity(network_real)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee =         glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct =     direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = assortativity(network_tensor)
+    mean_degree_matrix_direct[i,t] = assortativity(network_direct)
+    mean_degree_matrix_glee[i,t] = assortativity(network_glee)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (assortativity) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (assortativity) char imp  :", rmse)
+```
+
+
+
+### 2.4.6. Transitivity (avg clustering coefficient)
+
+```{r}
+
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = transitivity(graph_from_adjacency_matrix(network))
+    mean_degree_matrix_real[i,t] = transitivity(graph_from_adjacency_matrix(network_real))
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee =         glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct =     direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = transitivity(graph_from_adjacency_matrix(network_tensor))
+    mean_degree_matrix_direct[i,t] = transitivity(graph_from_adjacency_matrix(network_direct))
+    mean_degree_matrix_glee[i,t] = transitivity(graph_from_adjacency_matrix(network_glee))
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (assortativity) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (assortativity) char imp  :", rmse)
+```
+
+
+
+
+## 3 more missing entries
+
+Now we repeat the analysis for the case when 7 / 18, before it was 4/18 missing data
+
+### 3.1 Direct
+
+
+```{r}
+py_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv", sep=";", head=F))
+real_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_real.csv", sep=";", head=F))
+
+py_mat[is.nan(py_mat)] <- NA
+
+py_mat[1:10,1:10] <- NA # adding new missing entries
+py_mat[11:20,11:20] <- NA # adding new missing entries
+py_mat[51:60,1:10] <- NA # adding new missing entries
+
+fit1 <-softImpute(py_mat,rank=7,lambda=0.3)
+imputed = abs(round(complete(py_mat,fit1)))
+N_missing = sum(is.na(py_mat))
+
+rmse = sqrt(sum((imputed-real_mat)^2) / N_missing)
+direct_imp = imputed
+rmse
+```
+
+
+### 3.2 GLEE
+
+```{r}
+py_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute_NET.csv", sep=";", head=F))
+py_mat2 = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv", sep=";", head=F))
+real_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_real.csv", sep=";", head=F))
+
+py_mat2[1:10,1:10] <- NA # adding new missing entries
+py_mat2[11:20,11:20] <- NA # adding new missing entries
+py_mat2[51:60,1:10] <- NA # adding new missing entries
+
+py_mat[1:10,1] <- NA # adding new missing entries
+py_mat[11:20,2] <- NA # adding new missing entries
+py_mat[51:60,1] <- NA # adding new missing entries
+
+py_mat[is.nan(py_mat)] <- NA
+
+fit1 <-softImpute(py_mat,rank=1,lambda=0.2)
+imputed =complete(py_mat,fit1)
+
+# recover the L:
+
+reconstruction_L <- function(E, theta) {
+  E <- as.matrix(E) %*% t(as.matrix(E)) < theta
+  E <- ifelse(E, 1, 0)
+  return(E)
+}
+
+init = matrix(0,1,20)
+for (i in 1:9){
+  m1 = reconstruction_L(imputed[(((i-1)*10)+1):(i*10),1],-0.1)
+  m2 = reconstruction_L(imputed[(((i-1)*10)+1):(i*10),2],-0.1)
+  hor = cbind(m1,m2)
+  init = rbind(init,hor)
+}
+init <- init[-1, ]
+
+init[!is.na(py_mat2)] <- py_mat2[!is.na(py_mat2)]
+
+N_missing = sum(is.na(py_mat2))
+rmse = sqrt(sum((init-real_mat)^2) / N_missing)
+glee_imp = init
+rmse
+```
+
+### 3.3 Tensor
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+
+py_mat[1:10,1:10] <- NA # adding new missing entries
+py_mat[11:20,11:20] <- NA # adding new missing entries
+py_mat[51:60,1:10] <- NA # adding new missing entries
+
+py_mat[is.nan(py_mat)] <- NA
+
+
+tensor = array(0, dim = c(10,10,9, 2))
+tensor_real = array(0, dim = c(10,10,9, 2))
+
+for (i in 1:9){
+  inner = list()
+  inner_r = list()
+  for (t in 1:2){
+    if(t==1){}
+    tensor[,,i,t] = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    tensor_real[,,i,t] = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+  }
+  tensor2 = as.tensor(tensor)
+  tensor_real2 = as.tensor(tensor_real)
+}
+
+
+unfolded = k_unfold(tensor2, m = 2)@data
+fit1 <-softImpute(unfolded,rank=5,lambda=0.2)
+imputed = round(complete(unfolded,fit1))
+imputed = as.tensor(imputed)
+temp2 = k_fold(imputed,modes=c(10,10,9, 2),m=2)@data
+
+unfolded = k_unfold(tensor2, m = 3)@data
+fit1 <-softImpute(unfolded,rank=5,lambda=0.2)
+imputed = round(complete(unfolded,fit1))
+imputed = as.tensor(imputed)
+temp3 = k_fold(imputed,modes=c(10,10,9, 2),m=3)@data
+
+
+unfolded = k_unfold(tensor2, m = 4)@data
+fit1 <-softImpute(unfolded,rank=1,lambda=0.2)
+imputed = round(complete(unfolded,fit1))
+imputed = as.tensor(imputed)
+temp4 = k_fold(imputed,modes=c(10,10,9, 2),m=4)@data
+
+imputed_voting = array(as.numeric(temp4 + temp2 + temp3 > 0), dim = c(10,10,9,2))
+
+
+real = tensor_real2@data
+N_missing = sum(is.na(py_mat2))
+tensor_imp = imputed_voting
+rmse = sqrt(sum((imputed_voting-real)^2) / N_missing)
+rmse
+```
+
+
+
+
+
+### 3.4. Imputting characteristics 
+
+... and comparing with the other imputations
+
+#### 3.4.1 Mean degree
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = mean(rowMeans(network)/9)  
+    mean_degree_matrix_real[i,t] = mean(rowMeans(network_real)/9)  
+  }
+}
+```
+
+Carry out the imputation:
+
+```{r}
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+```
+
+Compare with the other imputations mean degree's:
+
+```{r}
+# tensor to matrix:
+tensor_imp_mat = matrix(0,90,20)
+for (i in 1:9){
+  for (t in 1:2){
+    tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)] = tensor_imp[,,i,t]
+  }
+}
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = mean(rowMeans(network_tensor)/9)  
+    mean_degree_matrix_direct[i,t] = mean(rowMeans(network_direct)/9)  
+    mean_degree_matrix_glee[i,t] = mean(rowMeans(network_glee)/9)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (mean degree) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (mean degree) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (mean degree) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (mean degree) char imp:", rmse)
+
+
+```
+
+
+
+#### 3.4.2. Centralisation
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+We are recycling the code, the mean_degree is centralisation now!
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = sd(rowMeans(network)/9)  
+    mean_degree_matrix_real[i,t] = sd(rowMeans(network_real)/9)  
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = sd(rowMeans(network_tensor)/9)  
+    mean_degree_matrix_direct[i,t] = sd(rowMeans(network_direct)/9)  
+    mean_degree_matrix_glee[i,t] = sd(rowMeans(network_glee)/9)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (centralistation) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (centralistation) char imp  :", rmse)
+```
+
+### 2.4.3. Bicomponent size
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+We are recycling the code, the mean_degree is bicomponent average? size now!
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = sum(bicomponent.dist(network)$csize)
+    mean_degree_matrix_real[i,t] = sum(bicomponent.dist(network_real, symmetrize = "weak")$csize)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = sum(bicomponent.dist(network_tensor)$csize)
+    mean_degree_matrix_direct[i,t] = sum(bicomponent.dist(network_direct)$csize)  
+    mean_degree_matrix_glee[i,t] = sum(bicomponent.dist(network_glee)$csize)    
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (centralistation) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (centralistation) char imp  :", rmse)
+```
+
+
+
+#### 3.4.4. Laplacian measures 
+
+Function to compute largest eigenvalue of the laplacian matrix:
+
+```{r}
+eigen_lap = function(adj_mat, n=1){
+  if (is.na(adj_mat[1,1])){return(NA)}
+  D = diag(rowSums(adj_mat))
+  L = D-adj_mat
+  return(eigen(L)$values[n])
+}
+```
+
+
+We first obtain data as always:
+
+```{r}
+py_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_to_impute.csv", sep=";", head=F))
+py_mat[is.nan(py_mat)] <- NA
+real_mat = as.matrix(read.csv("/Users/ivanrendobarreiro/Documents/academico/mres/s2/ML/matrix_real.csv", sep=";", head=F))
+```
+
+We are recycling the code, the mean_degree is bicomponent average? size now!
+
+```{r}
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = eigen_lap(network)
+    mean_degree_matrix_real[i,t] = eigen_lap(network_real)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = eigen_lap(network_tensor)
+    mean_degree_matrix_direct[i,t] = eigen_lap(network_direct)
+    mean_degree_matrix_glee[i,t] = eigen_lap(network_glee)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (max_eigen) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (max_eigen) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (max_eigen) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (max_eigen) char imp  :", rmse)
+```
+
+
+if n=3,4, it is the same...
+
+```{r}
+eigen_lap = function(adj_mat, n=4){
+  if (is.na(adj_mat[1,1])){return(NA)}
+  D = diag(rowSums(adj_mat))
+  L = D-adj_mat
+  return(eigen(L)$values[n])
+}
+
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = eigen_lap(network)
+    mean_degree_matrix_real[i,t] = eigen_lap(network_real)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee = glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct = direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = eigen_lap(network_tensor)
+    mean_degree_matrix_direct[i,t] = eigen_lap(network_direct)
+    mean_degree_matrix_glee[i,t] = eigen_lap(network_glee)  
+  }
+}
+
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (max_eigen_3) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (max_eigen_3) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (max_eigen_3) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (max_eigen_3) char imp  :", rmse)
+```
+
+
+
+#### 3.4.5. Assortativity
+
+```{r}
+assortativity <- function(adjacency_matrix) {
+  if (is.na(adjacency_matrix[1,1])){return(NA)}
+  n <- dim(adjacency_matrix)[1]
+  degrees <- rowSums(adjacency_matrix)
+  m <- sum(degrees) / 2
+  numerator <- sum(adjacency_matrix * kronecker(t(degrees), degrees))
+  denominator <- sum(adjacency_matrix * kronecker(t(degrees), degrees)^2)
+  assortativity <- (numerator / m - (denominator / (2*m))^2) / (1 - (denominator / (2*m)))
+  return(assortativity)
+}
+```
+
+
+```{r}
+
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = assortativity(network)
+    mean_degree_matrix_real[i,t] = assortativity(network_real)
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee =         glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct =     direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = assortativity(network_tensor)
+    mean_degree_matrix_direct[i,t] = assortativity(network_direct)
+    mean_degree_matrix_glee[i,t] = assortativity(network_glee)  
+  }
+}
+
+mean_degree_matrix_tensor[is.na(mean_degree_matrix_tensor)] <- 0
+mean_degree_matrix_tensor[is.infinite(mean_degree_matrix_tensor)] <- 0
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (assortativity) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (assortativity) char imp  :", rmse)
+```
+
+
+#### 3.4.6. Transitivity (avg clustering coefficient)
+
+```{r}
+
+mean_degree_matrix = matrix(0, 9, 2)
+mean_degree_matrix_real = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network = py_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_real = real_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    mean_degree_matrix[i,t] = transitivity(graph_from_adjacency_matrix(network))
+    mean_degree_matrix_real[i,t] = transitivity(graph_from_adjacency_matrix(network_real))
+  }
+}
+
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+imputed = complete(mean_degree_matrix,fit1)
+
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+
+# other RMSE's...:
+mean_degree_matrix_tensor = matrix(0, 9, 2)
+mean_degree_matrix_direct = matrix(0, 9, 2)
+mean_degree_matrix_glee = matrix(0, 9, 2)
+for (i in 1:9){
+  for (t in 1:2){
+    network_tensor = tensor_imp_mat[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_glee =         glee_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    network_direct =     direct_imp[(10*i-9):(10*i),(((t-1)*10)+1):(t*10)]
+    
+    mean_degree_matrix_tensor[i,t] = transitivity(graph_from_adjacency_matrix(network_tensor))
+    mean_degree_matrix_direct[i,t] = transitivity(graph_from_adjacency_matrix(network_direct))
+    mean_degree_matrix_glee[i,t] = transitivity(graph_from_adjacency_matrix(network_glee))
+  }
+}
+mean_degree_matrix_tensor[is.na(mean_degree_matrix_tensor)] <- 0
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+
+cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (assortativity) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (assortativity) char imp  :", rmse)
+```
+
+
