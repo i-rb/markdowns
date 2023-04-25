@@ -652,14 +652,15 @@ real_mat = as.matrix(read.csv(&quot;https://raw.githubusercontent.com/i-rb/mres_
 py_mat[is.nan(py_mat)] &lt;- NA</code></pre>
 <div id="direct-approach" class="section level2">
 <h2>2.1. Direct Approach</h2>
-<pre class="r"><code>fit1 &lt;-softImpute(py_mat,rank=7,lambda=0.2)
+<pre class="r"><code>set.seed(31000) # toulouse !
+fit1 &lt;-softImpute(py_mat,rank=7,lambda=0.2)
 imputed = abs(round(complete(py_mat,fit1)))
 N_missing = sum(is.na(py_mat))
 
 rmse = sqrt(sum((imputed-real_mat)^2) / N_missing)
 direct_imp = imputed
 rmse</code></pre>
-<pre><code>## [1] 0.4555217</code></pre>
+<pre><code>## [1] 0.441588</code></pre>
 </div>
 <div id="transformation-via-glee" class="section level2">
 <h2>2.2. Transformation via GLEE</h2>
@@ -752,7 +753,7 @@ N_missing = sum(is.na(py_mat2))
 tensor_imp = imputed_voting
 rmse = sqrt(sum((imputed_voting-real)^2) / N_missing)
 rmse</code></pre>
-<pre><code>## [1] 0.3316625</code></pre>
+<pre><code>## [1] 0.3674235</code></pre>
 </div>
 <div id="imputting-characteristics" class="section level2">
 <h2>2.4. Imputting characteristics</h2>
@@ -774,7 +775,7 @@ for (i in 1:9){
   }
 }</code></pre>
 <p>Carry out the imputation:</p>
-<pre class="r"><code>fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.2)
+<pre class="r"><code>fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)</code></pre>
@@ -808,13 +809,13 @@ rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
 cat(&quot;RMSE, characteristics (mean degree) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) direct imp: 0.007993053</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) direct imp: 0.007412036</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (mean degree) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
 <pre><code>## RMSE, characteristics (mean degree) glee imp  : 0.006186405</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (mean degree) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) tensor imp: 0.007370277</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) tensor imp: 0.009622504</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (mean degree) char imp:&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) char imp: 0.01324042</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) char imp: 0.00762796</code></pre>
 </div>
 <div id="centralisation" class="section level3">
 <h3>2.4.2. Centralisation</h3>
@@ -834,7 +835,7 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.001)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -860,13 +861,13 @@ rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
 cat(&quot;RMSE, characteristics (centralistation) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) direct imp: 0.01075084</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) direct imp: 0.005627203</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
 <pre><code>## RMSE, characteristics (centralistation) glee imp  : 0.001683434</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) tensor imp: 0.003676415</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) tensor imp: 0.003272267</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) char imp  : 0.01129478</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) char imp  : 0.002776245</code></pre>
 </div>
 <div id="bicomponent-size" class="section level3">
 <h3>2.4.3. Bicomponent size</h3>
@@ -887,7 +888,7 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=3)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -912,14 +913,14 @@ rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
 rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
-cat(&quot;RMSE, characteristics (centralistation) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) direct imp: 3.5</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) glee imp  : 4.031129</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) tensor imp: 3.605551</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) char imp  : 8.789198</code></pre>
+cat(&quot;RMSE, characteristics (Bicomp) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (Bicomp) direct imp: 3.5</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (Bicomp) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (Bicomp) glee imp  : 4.031129</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (Bicomp) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (Bicomp) tensor imp: 4.031129</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (Bicomp) char imp  :&quot;, rmse)</code></pre>
+<pre><code>## RMSE, characteristics (Bicomp) char imp  : 8.789198</code></pre>
 </div>
 <div id="laplacian-measures" class="section level3">
 <h3>2.4.4. Laplacian measures</h3>
@@ -947,7 +948,7 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -973,13 +974,13 @@ rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
 cat(&quot;RMSE, characteristics (max_eigen) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) direct imp: 1.017543+0i</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) direct imp: 1.178499+0i</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
 <pre><code>## RMSE, characteristics (max_eigen) glee imp  : 0.5775037</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) tensor imp: 0.9055334</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) tensor imp: 1.167666</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) char imp  : 1.38288</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) char imp  : 0.7888302</code></pre>
 <p>if n=3,4, it is the same…</p>
 <pre class="r"><code>eigen_lap = function(adj_mat, n=4){
   if (is.na(adj_mat[1,1])){return(NA)}
@@ -999,7 +1000,7 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -1025,13 +1026,13 @@ rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
 cat(&quot;RMSE, characteristics (max_eigen_3) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) direct imp: 1.002077-0.049531i</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) direct imp: 1.036342+0i</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen_3) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
 <pre><code>## RMSE, characteristics (max_eigen_3) glee imp  : 1.434239</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen_3) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) tensor imp: 1.263669</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) tensor imp: 1.160543</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen_3) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) char imp  : 1.167131</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) char imp  : 1.349002</code></pre>
 </div>
 <div id="assortativity" class="section level3">
 <h3>2.4.5. Assortativity</h3>
@@ -1056,7 +1057,7 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=1)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -1082,13 +1083,13 @@ rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
 cat(&quot;RMSE, characteristics (assortativity) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) direct imp: 174.5766</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) direct imp: 35.82836</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
 <pre><code>## RMSE, characteristics (assortativity) glee imp  : 11.65827</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) tensor imp: 61.39536</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) tensor imp: 79.62065</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) char imp  : 32.55994</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) char imp  : 32.13178</code></pre>
 </div>
 <div id="transitivity-avg-clustering-coefficient" class="section level3">
 <h3>2.4.6. Transitivity (avg clustering coefficient)</h3>
@@ -1128,14 +1129,14 @@ rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
 rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
-cat(&quot;RMSE, characteristics (assortativity) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) direct imp: 0.4023296</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) glee imp  : 0.1153846</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) tensor imp: 0.2901062</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) char imp  : 0.1153846</code></pre>
+cat(&quot;RMSE, characteristics (transitivity) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) direct imp: 0.3329247</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (transitivity) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) glee imp  : 0.1153846</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (transitivity) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) tensor imp: 0.2688521</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (transitivity) char imp  :&quot;, rmse)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) char imp  : 0.1153846</code></pre>
 </div>
 </div>
 <div id="more-missing-entries" class="section level2">
@@ -1144,7 +1145,8 @@ cat(&quot;RMSE, characteristics (assortativity) direct imp:&quot;, rmse2, &quot;
 4/18 missing data</p>
 <div id="direct" class="section level3">
 <h3>3.1 Direct</h3>
-<pre class="r"><code>py_mat = as.matrix(read.csv(&quot;https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv&quot;, sep=&quot;;&quot;, head=F))
+<pre class="r"><code>set.seed(31000) # toulouse !
+py_mat = as.matrix(read.csv(&quot;https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv&quot;, sep=&quot;;&quot;, head=F))
 real_mat = as.matrix(read.csv(&quot;https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_real.csv&quot;, sep=&quot;;&quot;, head=F))
 
 py_mat[is.nan(py_mat)] &lt;- NA
@@ -1160,7 +1162,7 @@ N_missing = sum(is.na(py_mat))
 rmse = sqrt(sum((imputed-real_mat)^2) / N_missing)
 direct_imp = imputed
 rmse</code></pre>
-<pre><code>## [1] 0.4309458</code></pre>
+<pre><code>## [1] 0.4440077</code></pre>
 </div>
 <div id="glee" class="section level3">
 <h3>3.2 GLEE</h3>
@@ -1204,7 +1206,7 @@ N_missing = sum(is.na(py_mat2))
 rmse = sqrt(sum((init-real_mat)^2) / N_missing)
 glee_imp = init
 rmse</code></pre>
-<pre><code>## [1] 0.4105745</code></pre>
+<pre><code>## [1] 0.4070802</code></pre>
 </div>
 <div id="tensor" class="section level3">
 <h3>3.3 Tensor</h3>
@@ -1261,7 +1263,7 @@ N_missing = sum(is.na(py_mat2))
 tensor_imp = imputed_voting
 rmse = sqrt(sum((imputed_voting-real)^2) / N_missing)
 rmse</code></pre>
-<pre><code>## [1] 0.4566962</code></pre>
+<pre><code>## [1] 0.4342481</code></pre>
 </div>
 <div id="imputting-characteristics-1" class="section level3">
 <h3>3.4. Imputting characteristics</h3>
@@ -1287,10 +1289,10 @@ for (i in 1:9){
   }
 }</code></pre>
 <p>Carry out the imputation:</p>
-<pre class="r"><code>fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.2)
+<pre class="r"><code>fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)</code></pre>
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)</code></pre>
 <p>Compare with the other imputations mean degree’s:</p>
 <pre class="r"><code># tensor to matrix:
 tensor_imp_mat = matrix(0,90,20)
@@ -1316,18 +1318,18 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat(&quot;RMSE, characteristics (mean degree) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) direct imp: 0.0101835</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) direct imp: 0.007559289</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (mean degree) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) glee imp  : 0.008534606</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) glee imp  : 0.005939139</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (mean degree) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) tensor imp: 0.02003084</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) tensor imp: 0.0136987</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (mean degree) char imp:&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (mean degree) char imp: 0.01972027</code></pre>
+<pre><code>## RMSE, characteristics (mean degree) char imp: 0.008753806</code></pre>
 </div>
 <div id="centralisation-1" class="section level4">
 <h4>3.4.2. Centralisation</h4>
@@ -1350,10 +1352,10 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE&#39;s...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1371,18 +1373,18 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat(&quot;RMSE, characteristics (centralistation) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) direct imp: 0.005040139</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) direct imp: 0.00438885</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) glee imp  : 0.00597127</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) glee imp  : 0.004476436</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) tensor imp: 0.007837438</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) tensor imp: 0.007140366</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) char imp  : 0.01635511</code></pre>
+<pre><code>## RMSE, characteristics (centralistation) char imp  : 0.005243253</code></pre>
 </div>
 </div>
 <div id="bicomponent-size-1" class="section level3">
@@ -1407,10 +1409,10 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.001)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE&#39;s...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1428,18 +1430,18 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
-cat(&quot;RMSE, characteristics (centralistation) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) direct imp: 4.555217</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) glee imp  : 4.301163</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) tensor imp: 4.66369</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (centralistation) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (centralistation) char imp  : 10.98863</code></pre>
+cat(&quot;RMSE, characteristics (bicomp) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (bicomp) direct imp: 3.44342</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (bicomp) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (bicomp) glee imp  : 3.251373</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (bicomp) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (bicomp) tensor imp: 4.503967</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (bicomp) char imp  :&quot;, rmse)</code></pre>
+<pre><code>## RMSE, characteristics (bicomp) char imp  : 8.306624</code></pre>
 <div id="laplacian-measures-1" class="section level4">
 <h4>3.4.4. Laplacian measures</h4>
 <p>Function to compute largest eigenvalue of the laplacian matrix:</p>
@@ -1469,10 +1471,10 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=1.5)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE&#39;s...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1490,18 +1492,18 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat(&quot;RMSE, characteristics (max_eigen) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) direct imp: 2.165327</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) direct imp: 1.40943</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) glee imp  : 2.084983</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) glee imp  : 1.567628</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) tensor imp: 2.763252</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) tensor imp: 2.18191</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen) char imp  : 2.017963</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen) char imp  : 1.456507</code></pre>
 <p>if n=3,4, it is the same…</p>
 <pre class="r"><code>eigen_lap = function(adj_mat, n=4){
   if (is.na(adj_mat[1,1])){return(NA)}
@@ -1524,7 +1526,7 @@ for (i in 1:9){
 fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE&#39;s...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1542,18 +1544,18 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat(&quot;RMSE, characteristics (max_eigen_3) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) direct imp: 1.529981</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) direct imp: 1.24302</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen_3) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) glee imp  : 1.95598</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) glee imp  : 1.478582</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen_3) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) tensor imp: 3.181993</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) tensor imp: 1.905985</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (max_eigen_3) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (max_eigen_3) char imp  : 1.922867</code></pre>
+<pre><code>## RMSE, characteristics (max_eigen_3) char imp  : 1.453618</code></pre>
 </div>
 <div id="assortativity-1" class="section level4">
 <h4>3.4.5. Assortativity</h4>
@@ -1578,10 +1580,10 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=400)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE&#39;s...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1601,18 +1603,18 @@ for (i in 1:9){
 
 mean_degree_matrix_tensor[is.na(mean_degree_matrix_tensor)] &lt;- 0
 mean_degree_matrix_tensor[is.infinite(mean_degree_matrix_tensor)] &lt;- 0
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat(&quot;RMSE, characteristics (assortativity) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) direct imp: 71.42307</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) direct imp: 48.92796</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) glee imp  : 58.59934</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) glee imp  : 41.43034</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) tensor imp: 302.6684</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) tensor imp: 140.8767</code></pre>
 <pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) char imp  : 187.7265</code></pre>
+<pre><code>## RMSE, characteristics (assortativity) char imp  : 54.56043</code></pre>
 </div>
 <div id="transitivity-avg-clustering-coefficient-1" class="section level4">
 <h4>3.4.6. Transitivity (avg clustering coefficient)</h4>
@@ -1627,10 +1629,10 @@ for (i in 1:9){
   }
 }
 
-fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 &lt;-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE&#39;s...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1648,18 +1650,18 @@ for (i in 1:9){
   }
 }
 mean_degree_matrix_tensor[is.na(mean_degree_matrix_tensor)] &lt;- 0
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
-cat(&quot;RMSE, characteristics (assortativity) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) direct imp: 0.6238276</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) glee imp  : 0.5944019</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) tensor imp: 0.3783663</code></pre>
-<pre class="r"><code>cat(&quot;RMSE, characteristics (assortativity) char imp  :&quot;, rmse)</code></pre>
-<pre><code>## RMSE, characteristics (assortativity) char imp  : 0.5944019</code></pre>
+cat(&quot;RMSE, characteristics (transitivity) direct imp:&quot;, rmse2, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) direct imp: 0.3594755</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (transitivity) glee imp  :&quot;, rmse3,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) glee imp  : 0.4493256</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (transitivity) tensor imp:&quot;, rmse1,&quot;\n&quot;)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) tensor imp: 0.3934912</code></pre>
+<pre class="r"><code>cat(&quot;RMSE, characteristics (transitivity) char imp  :&quot;, rmse)</code></pre>
+<pre><code>## RMSE, characteristics (transitivity) char imp  : 0.6584019</code></pre>
 </div>
 </div>
 </div>

@@ -291,6 +291,7 @@ py_mat[is.nan(py_mat)] <- NA
 
 
 ```{r}
+set.seed(31000) # toulouse !
 fit1 <-softImpute(py_mat,rank=7,lambda=0.2)
 imputed = abs(round(complete(py_mat,fit1)))
 N_missing = sum(is.na(py_mat))
@@ -445,10 +446,11 @@ for (i in 1:9){
 }
 ```
 
+
 Carry out the imputation:
 
 ```{r}
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -519,7 +521,7 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.001)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -574,7 +576,7 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=3)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -599,10 +601,10 @@ rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
 rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
-cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
-cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
-cat("RMSE, characteristics (centralistation) tensor imp:", rmse1,"\n")
-cat("RMSE, characteristics (centralistation) char imp  :", rmse)
+cat("RMSE, characteristics (Bicomp) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (Bicomp) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (Bicomp) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (Bicomp) char imp  :", rmse)
 ```
 
 
@@ -643,7 +645,7 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -696,7 +698,7 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -758,7 +760,7 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=1)
 imputed = complete(mean_degree_matrix,fit1)
 
 rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
@@ -831,10 +833,10 @@ rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
 rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
 rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
 
-cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
-cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
-cat("RMSE, characteristics (assortativity) tensor imp:", rmse1,"\n")
-cat("RMSE, characteristics (assortativity) char imp  :", rmse)
+cat("RMSE, characteristics (transitivity) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (transitivity) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (transitivity) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (transitivity) char imp  :", rmse)
 ```
 
 
@@ -848,6 +850,7 @@ Now we repeat the analysis for the case when 7 / 18, before it was 4/18 missing 
 
 
 ```{r}
+set.seed(31000) # toulouse !
 py_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_to_impute.csv", sep=";", head=F))
 real_mat = as.matrix(read.csv("https://raw.githubusercontent.com/i-rb/mres_assignments/main/ML_data/matrix_real.csv", sep=";", head=F))
 
@@ -1009,10 +1012,10 @@ for (i in 1:9){
 Carry out the imputation:
 
 ```{r}
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 ```
 
 Compare with the other imputations mean degree's:
@@ -1042,9 +1045,9 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat("RMSE, characteristics (mean degree) direct imp:", rmse2, "\n")
 cat("RMSE, characteristics (mean degree) glee imp  :", rmse3,"\n")
@@ -1083,10 +1086,10 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE's...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1104,9 +1107,9 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
 cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
@@ -1141,10 +1144,10 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.001)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE's...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1162,14 +1165,14 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
-cat("RMSE, characteristics (centralistation) direct imp:", rmse2, "\n")
-cat("RMSE, characteristics (centralistation) glee imp  :", rmse3,"\n")
-cat("RMSE, characteristics (centralistation) tensor imp:", rmse1,"\n")
-cat("RMSE, characteristics (centralistation) char imp  :", rmse)
+cat("RMSE, characteristics (bicomp) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (bicomp) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (bicomp) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (bicomp) char imp  :", rmse)
 ```
 
 
@@ -1213,10 +1216,10 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=1.5)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE's...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1234,9 +1237,9 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat("RMSE, characteristics (max_eigen) direct imp:", rmse2, "\n")
 cat("RMSE, characteristics (max_eigen) glee imp  :", rmse3,"\n")
@@ -1269,7 +1272,7 @@ for (i in 1:9){
 fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE's...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1287,9 +1290,9 @@ for (i in 1:9){
   }
 }
 
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat("RMSE, characteristics (max_eigen_3) direct imp:", rmse2, "\n")
 cat("RMSE, characteristics (max_eigen_3) glee imp  :", rmse3,"\n")
@@ -1328,10 +1331,10 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=400)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE's...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1351,9 +1354,9 @@ for (i in 1:9){
 
 mean_degree_matrix_tensor[is.na(mean_degree_matrix_tensor)] <- 0
 mean_degree_matrix_tensor[is.infinite(mean_degree_matrix_tensor)] <- 0
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
 cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
 cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
@@ -1377,10 +1380,10 @@ for (i in 1:9){
   }
 }
 
-fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=2)
+fit1 <-softImpute(mean_degree_matrix,rank=1,lambda=0.01)
 imputed = complete(mean_degree_matrix,fit1)
 
-rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 4)
+rmse = sqrt(sum((imputed-mean_degree_matrix_real)^2) / 7)
 
 # other RMSE's...:
 mean_degree_matrix_tensor = matrix(0, 9, 2)
@@ -1398,14 +1401,15 @@ for (i in 1:9){
   }
 }
 mean_degree_matrix_tensor[is.na(mean_degree_matrix_tensor)] <- 0
-rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 4)
-rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 4)
-rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 4)
+rmse1 = sqrt(sum((mean_degree_matrix_tensor-mean_degree_matrix_real)^2) / 7)
+rmse2 = sqrt(sum((mean_degree_matrix_direct-mean_degree_matrix_real)^2) / 7)
+rmse3 = sqrt(sum((mean_degree_matrix_glee-mean_degree_matrix_real)^2) / 7)
 
-cat("RMSE, characteristics (assortativity) direct imp:", rmse2, "\n")
-cat("RMSE, characteristics (assortativity) glee imp  :", rmse3,"\n")
-cat("RMSE, characteristics (assortativity) tensor imp:", rmse1,"\n")
-cat("RMSE, characteristics (assortativity) char imp  :", rmse)
+cat("RMSE, characteristics (transitivity) direct imp:", rmse2, "\n")
+cat("RMSE, characteristics (transitivity) glee imp  :", rmse3,"\n")
+cat("RMSE, characteristics (transitivity) tensor imp:", rmse1,"\n")
+cat("RMSE, characteristics (transitivity) char imp  :", rmse)
 ```
+
 
 
